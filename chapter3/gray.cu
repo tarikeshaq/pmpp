@@ -88,7 +88,7 @@ void printMatrix(float *A, int n, int m) {
 
 int main(int argv, char** argc) {
     int n = 4;
-    int m = 4;
+    int m = 5;
     int k = 4;
     size_t A_size = n * m * sizeof(float);
     size_t B_size = m * k * sizeof(float);
