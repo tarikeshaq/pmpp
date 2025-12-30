@@ -1,7 +1,9 @@
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
 #include <stdio.h>
 #include <sys/stat.h>
+#include <time.h>
 
 #include <cuda_runtime.h>
 
@@ -86,13 +88,39 @@ void printMatrix(float *A, int n, int m) {
     printf("]\n");
 }
 
+
+void hostMatrixMult(float *A, float *B, float *C, int n, int m, int k) {
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < k; j++) {
+            float val = 0;
+            for (int l = 0; l < m; l++) {
+                val += (A[i*m + l] * B[l*k + j]);
+            }
+            C[i*k + j] = val;
+        }
+    }
+}
+
+void compareMatrix(float *A, float *B, int n, int m) {
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < m; j++) {
+            float diff = abs(A[i*m + j] - B[i*m + j]);
+
+            float threshold = fmax(fabs(A[i*m + j]), fabs(B[i*m + j])) * 1e-5;
+            if (diff > fmax(threshold, 1e-5)) {
+                printf("Found mismatch at index %d,%d, diff is %.2f\n", i, j, diff);
+            }
+        }
+    }
+}
+
 int main(int argv, char** argc) {
-    int n = 4;
-    int m = 5;
-    int k = 4;
+    int n = 10000;
+    int m = 10000;
+    int k = 10000;
     size_t A_size = n * m * sizeof(float);
     size_t B_size = m * k * sizeof(float);
-    size_t C_size = m * k * sizeof(float);
+    size_t C_size = n * k * sizeof(float);
     float *A = (float*)malloc(A_size);
     float *B = (float*)malloc(B_size);
     float *C = (float*)malloc(C_size);
@@ -105,20 +133,37 @@ int main(int argv, char** argc) {
 
     cudaMemcpy(A_D, A, A_size, cudaMemcpyHostToDevice);
     cudaMemcpy(B_D, B, B_size, cudaMemcpyHostToDevice);
-    dim3 dimGrid(ceil(m/16.0), ceil(n/16.0), 1);
+    dim3 dimGrid(ceil(k/16.0), ceil(n/16.0), 1);
     dim3 dimBlock(16, 16, 1);
+    struct timespec start, end;
+    clock_gettime(CLOCK_MONOTONIC, &start);
     matrixMult<<<dimGrid, dimBlock>>>(A_D, B_D, C_D, n, m, k);
+    cudaDeviceSynchronize();
+    clock_gettime(CLOCK_MONOTONIC,&end);
 
+    double elapsed = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
 
-    cudaMemcpy(C, C_D, C_size, cudaMemcpyDeviceToHost);
-    printMatrix(C, m, k);
+    printf("(GPU) Time elapsed is: %.3f\n", elapsed);
 
+    struct timespec start_h, end_h;
+    clock_gettime(CLOCK_MONOTONIC, &start_h);
+    hostMatrixMult(A, B, C, n, m, k);
+    clock_gettime(CLOCK_MONOTONIC,&end_h);
+
+    double elapsed_h = (end_h.tv_sec - start_h.tv_sec) + (end_h.tv_nsec - start_h.tv_nsec) / 1e9;
+
+    printf("(CPU): Time elapsed is: %.3f\n", elapsed_h);
+    float *C_H = (float*)malloc(C_size);
+    cudaMemcpy(C_H, C_D, C_size, cudaMemcpyDeviceToHost);
+
+    compareMatrix(C, C_H, n, k);
 
     cudaFree(A_D);
     cudaFree(B_D);
     cudaFree(C_D);
 
     free(C);
+    free(C_H);
     free(B);
     free(A);
 }
