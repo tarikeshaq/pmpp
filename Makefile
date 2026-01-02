@@ -11,7 +11,7 @@ chapter4: chapter4/prop.cu
 	./prop
 
 chapter5: chapter5/mem.cu
-	nvcc chapter5/mem.cu -o mem
+	nvcc -lcublas chapter5/mem.cu -o mem
 	./mem
 
 
