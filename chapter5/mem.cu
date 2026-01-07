@@ -36,10 +36,6 @@ __global__ void tiledMatrixMult(float *M, float *N, float *P, int w) { // Assume
 
    #pragma unroll
    for (int ph = 0; ph < w/TILE_WIDTH; ph++) {
-        // First we do a load phase, where we collaborate to load
-        // the global memory into the shared memory.
-        // Each thread with index row,col will load A_row_{ph*TILE_WIDTH + tx}
-        // and B_{ph*TILE_WIDTH + ty}_col into Mds[tx][ty] and Nds[tx][ty] respectively
         if (row < w && (ph*TILE_WIDTH + tx) < w) {
            Mds[ty][tx] = M[row*w + (ph*TILE_WIDTH + tx)];
         } else Mds[ty][tx] = 0.0f;
@@ -57,6 +53,10 @@ __global__ void tiledMatrixMult(float *M, float *N, float *P, int w) { // Assume
     if (col < w && row < w) {
         P[row*w + col] = pVal;
     }
+}
+
+int wow() {
+ return 0;    
 }
 
 void cuBlas_mult(float *A, float *B, float *C, int n, int m, int k) {
